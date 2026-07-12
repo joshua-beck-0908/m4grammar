@@ -4,3 +4,8 @@
 .gitignore
 *.vsix
 node_modules/**
+client/**
+server/**
+tsconfig.json
+esbuild.js
+out/**/*.map

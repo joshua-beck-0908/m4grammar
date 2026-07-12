@@ -1,8 +1,8 @@
 {
   "name": "m4-syntax",
   "displayName": "GNU M4 Syntax Highlighting",
-  "description": "Syntax highlighting for the GNU m4 macro processor language (.m4 files, and m4 code cells in Jupyter notebooks).",
-  "version": "0.1.0",
+  "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
+  "version": "0.2.0",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "engines": {
@@ -22,6 +22,10 @@
     "type": "git",
     "url": "https://github.com/joshua-beck-0908/m4grammar"
   },
+  "main": "./out/client/extension.js",
+  "activationEvents": [
+    "onLanguage:m4"
+  ],
   "contributes": {
     "languages": [
       {
@@ -38,6 +42,53 @@
         "scopeName": "source.m4",
         "path": "./syntaxes/m4.tmLanguage.json"
       }
-    ]
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "macroCall",
+        "description": "A name(...) call whose target macro could not be resolved (not a builtin, and no reachable define/pushdef found)."
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "m4",
+        "scopes": {
+          "macroCall": ["entity.name.function.unresolved.m4"]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "M4",
+      "properties": {
+        "m4.maxIncludeDepth": {
+          "type": "number",
+          "default": 8,
+          "minimum": 0,
+          "maximum": 32,
+          "description": "Maximum depth of include()/sinclude() files the language server will follow to resolve macro definitions."
+        },
+        "m4.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Trace communication between VS Code and the M4 language server (for debugging the extension itself)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.75.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
   }
 }
