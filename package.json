@@ -1,8 +1,8 @@
 {
   "name": "m4-syntax",
   "displayName": "GNU M4 Syntax Highlighting",
-  "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
-  "version": "0.2.0",
+  "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, .md.m4 Markdown+M4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
+  "version": "0.3.0",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "engines": {
@@ -16,7 +16,8 @@
     "gnu m4",
     "macro",
     "autoconf",
-    "preprocessor"
+    "preprocessor",
+    "markdown"
   ],
   "repository": {
     "type": "git",
@@ -24,7 +25,8 @@
   },
   "main": "./out/client/extension.js",
   "activationEvents": [
-    "onLanguage:m4"
+    "onLanguage:m4",
+    "onLanguage:m4-markdown"
   ],
   "contributes": {
     "languages": [
@@ -34,6 +36,12 @@
         "extensions": [".m4", ".m4i", ".m4f"],
         "filenames": ["aclocal.m4"],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "m4-markdown",
+        "aliases": ["Markdown+M4", "M4 Markdown"],
+        "extensions": [".md.m4"],
+        "configuration": "./language-configuration.md-m4.json"
       }
     ],
     "grammars": [
@@ -41,6 +49,22 @@
         "language": "m4",
         "scopeName": "source.m4",
         "path": "./syntaxes/m4.tmLanguage.json"
+      },
+      {
+        "language": "m4-markdown",
+        "scopeName": "text.html.markdown.m4",
+        "path": "./syntaxes/m4-markdown.tmLanguage.json"
+      },
+      {
+        "scopeName": "m4.injection.markdown",
+        "path": "./syntaxes/m4-markdown-injection.tmLanguage.json",
+        "injectTo": ["text.html.markdown.m4"]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "m4-markdown",
+        "path": "./snippets/m4-markdown.json"
       }
     ],
     "semanticTokenTypes": [
@@ -52,6 +76,12 @@
     "semanticTokenScopes": [
       {
         "language": "m4",
+        "scopes": {
+          "macroCall": ["entity.name.function.unresolved.m4"]
+        }
+      },
+      {
+        "language": "m4-markdown",
         "scopes": {
           "macroCall": ["entity.name.function.unresolved.m4"]
         }

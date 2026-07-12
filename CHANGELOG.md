@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0
+
+- Added a "Markdown+M4" language mode for `.md.m4` files: the stock Markdown
+  grammar with m4 syntax (comments, `dnl`, quoted strings, macro calls,
+  `changequote`/`changecom`) layered on top via a TextMate injection grammar,
+  so m4 constructs are recognized anywhere in the document, including in the
+  middle of an already-open paragraph or list item, not just at line starts.
+  The language server attaches here too, so live `changequote`/`changecom`
+  tracking and bare macro-reference recognition work the same as in `.m4`
+  files.
+- Documents (and works around, via a recommended `changequote`/`changecom`
+  preamble and a matching `m4md-preamble` snippet) a real collision between
+  m4's default quote/comment characters and Markdown's own syntax: m4's
+  default quote is an asymmetric backtick/apostrophe pair, while Markdown's
+  inline code and fenced code blocks use symmetric backtick pairs, which
+  otherwise cascades into corrupted highlighting for the rest of the file.
+- Adds `examples/sample.md.m4` demonstrating the safe convention.
+
 ## 0.2.0
 
 - Added a language server (`server/`) that tracks m4's live lexical state

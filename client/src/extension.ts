@@ -22,9 +22,13 @@ export function activate(context: ExtensionContext): void {
       { scheme: 'untitled', language: 'm4' },
       // Notebook cells (e.g. Jupyter) get this scheme once their language is set to m4.
       { scheme: 'vscode-notebook-cell', language: 'm4' },
+      // Markdown+M4 (.md.m4) files - same analyzer, it only ever emits tokens
+      // for m4 constructs, so it layers correctly under the Markdown grammar.
+      { scheme: 'file', language: 'm4-markdown' },
+      { scheme: 'untitled', language: 'm4-markdown' },
     ],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher('**/*.{m4,m4i,m4f}'),
+      fileEvents: workspace.createFileSystemWatcher('**/*.{m4,m4i,m4f,md.m4}'),
       configurationSection: 'm4',
     },
     initializationOptions: {

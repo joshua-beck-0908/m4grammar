@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Markdown+M4",
+  "scopeName": "text.html.markdown.m4",
+  "fileTypes": ["md.m4"],
+  "comment": "This grammar is just the stock Markdown grammar under a new scope name (text.html.markdown.m4 instead of text.html.markdown), so that the injection grammar in m4-markdown-injection.tmLanguage.json - which targets exactly this scope name - only ever applies to *.md.m4 files, never to plain Markdown. See README.md.",
+  "patterns": [{ "include": "text.html.markdown" }]
+}

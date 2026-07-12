@@ -2,8 +2,9 @@
 
 Syntax highlighting and a lightweight language server for the
 [GNU m4](https://www.gnu.org/software/m4/) macro processor: `.m4`, `.m4i`,
-`.m4f`, and `aclocal.m4` files, plus M4 code cells in Jupyter notebooks and
-fenced ` ```m4 ` blocks in Markdown.
+`.m4f`, and `aclocal.m4` files; `.md.m4` files (Markdown with m4 macros -
+see [below](#markdown--m4-mdm4)); M4 code cells in Jupyter notebooks; and
+fenced ` ```m4 ` blocks in plain Markdown.
 
 There are two layers:
 
@@ -69,6 +70,90 @@ harvest their macro definitions and any lexical state changes they make, so
 macros defined in a helper file are recognized, with hover/go-to-definition
 pointing into that file, when used from the file you're editing.
 
+## Markdown + m4 (`.md.m4`)
+
+Files named `*.md.m4` get a dedicated "Markdown+M4" language mode: full
+CommonMark highlighting (headings, emphasis, links, tables, fenced code,
+...) via VS Code's own built-in Markdown grammar, with m4 syntax layered on
+top wherever it appears - including in the middle of a multi-line paragraph
+or list item, not just at the start of a line.
+
+This composition works cleanly *because* m4 has no "escape into code"
+delimiter the way PHP-in-HTML or `<script>`-in-HTML do: the entire file is
+always m4 source, and any text m4 doesn't specifically recognize just passes
+through untouched. So there was no embedded-language boundary to design -
+`syntaxes/m4-markdown.tmLanguage.json` is the stock Markdown grammar under a
+new scope name, and `syntaxes/m4-markdown-injection.tmLanguage.json` is an
+**injection** grammar (`injectTo`/`injectionSelector`, high priority) that
+tries the same m4 rules the plain `.m4` grammar uses at every position,
+before falling through to whatever Markdown would otherwise do there. A
+plain "base grammar + include" composition can't do this - once Markdown's
+own paragraph/list rule starts matching, only *its own* nested patterns get
+tried for the rest of that block; injections are specifically designed to
+keep competing at every position regardless of nesting.
+
+### The one thing you actually need to know: change the quote/comment characters
+
+m4's **default** quote character is a backtick, and Markdown's inline code
+spans and fenced code blocks are *also* delimited by backticks - but m4
+quoting is backtick-to-**apostrophe** (an asymmetric pair), while Markdown's
+code spans are backtick-to-**backtick** (symmetric). Write ```` `like this` ````
+in prose under m4's default quoting and m4 sees an *opened, unterminated*
+quote at the first backtick (with the second backtick read as the start of
+a *nested* quote, since backtick never closes anything to m4) - and it keeps
+consuming everything after it, across the rest of the paragraph, through
+fenced code blocks, potentially to the end of the file, looking for an
+apostrophe that was never meant to close anything. This isn't just a
+highlighting quirk: it's exactly what real `m4` would also do to the file's
+actual output. Similarly, m4's default comment character `#` is Markdown's
+heading marker, and comments don't take arguments the way headings visually
+suggest they might - `# My Heading` is simply, entirely, a comment to m4 by
+default.
+
+The fix is the one the GNU m4 manual itself recommends for this exact
+situation: pick different characters. `examples/sample.md.m4` (and the
+`m4md-preamble` snippet, triggered by typing `m4md-preamble` in a `.md.m4`
+file) starts every file with:
+
+```m4
+changequote([[,]])dnl
+changecom(<!--,-->)dnl
+```
+
+`[[`/`]]` doesn't collide with anything in CommonMark (single `[...]` is link
+syntax, but doubled brackets aren't used for anything). `<!--`/`-->` is a
+deliberate choice, not just an arbitrary safe one: it's Markdown's *own*
+HTML-comment syntax, so anything you wrap in it is simultaneously an m4
+comment (protected from macro expansion, but still copied to the output)
+*and* hidden from the rendered Markdown - one wrapper does both jobs. The
+one trade-off: with the default `#` comment character, headings were
+*accidentally* protected from macro expansion (a heading is a comment to
+m4); switching to `<!--`/`-->` means headings now participate in expansion
+like everything else, which is usually what you actually want in a
+templated document, but is worth knowing about.
+
+**Important:** because the language server is what actually tracks
+`changequote`/`changecom`, the *static grammar's* view of a `.md.m4` file
+still assumes default backtick/apostrophe quoting and will show the same
+cascading-corruption pattern described above for any backticks in the file,
+changequote preamble or not - the grammar has no memory, full stop (this is
+the same limitation as for plain `.m4` files, just more visible here because
+Markdown uses backticks so often). It self-corrects the moment the language
+server attaches (near-instant in a normal desktop VS Code session). If
+you're relying on the web extension host (see
+[below](#what-the-language-server-still-cant-do)) or otherwise can't run the
+language server, `.md.m4` files with backticks are not going to highlight
+usably - that's a hard requirement for this mode, not a nice-to-have.
+
+Also note that m4 has no idea what Markdown is: a bare macro reference
+inside a fenced code block or inline code span still expands, since m4
+processes the raw bytes of the file before it's Markdown at all. The example
+file uses this on purpose (an install command's URL tracks a `PROJECT`
+macro's value even though it's written inside a fence) - but it means you
+can't rely on code spans/fences to "protect" example text containing what
+looks like a macro name; quote it with m4's own quotes if you want it to
+survive literally.
+
 ## Using it
 
 **Development / trying it out:** `npm install`, then open this folder in VS
@@ -89,6 +174,10 @@ into `out/`. `npm run typecheck` type-checks both without emitting.
   the language server will follow.
 - `m4.trace.server` — standard LSP client/server message tracing, for
   debugging the extension itself.
+
+**`.md.m4` snippet:** type `m4md-preamble` in a `.md.m4` file and accept the
+suggestion to insert the recommended `changequote`/`changecom` preamble
+described [above](#markdown--m4-mdm4).
 
 **Jupyter notebooks:** VS Code applies a language's grammar and language
 server to a notebook cell based on the cell's language ID, same as a file.

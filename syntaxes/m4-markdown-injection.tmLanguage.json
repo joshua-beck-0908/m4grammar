@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "M4 in Markdown (injection)",
+  "scopeName": "m4.injection.markdown",
+  "injectionSelector": "L:text.html.markdown.m4",
+  "comment": "Injected (not just included) so m4 constructs are recognized even in the middle of an already-open Markdown block (e.g. a multi-line paragraph or list item), not only at the start of a line. A plain 'include text.html.markdown' composition can't do that: once Markdown's own paragraph/list/etc. rule has started matching, only *its* nested patterns are considered for the rest of that block - see README.md.",
+  "patterns": [
+    { "include": "source.m4#comment" },
+    { "include": "source.m4#dnl-statement" },
+    { "include": "source.m4#quotable-code" }
+  ]
+}
