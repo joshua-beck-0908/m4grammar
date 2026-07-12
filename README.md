@@ -164,10 +164,18 @@ to see it in action.
 **Building:** `npm run build` bundles the client and server (via esbuild)
 into `out/`. `npm run typecheck` type-checks both without emitting.
 
-**Packaging:** `npx @vscode/vsce package` runs the build automatically
+**Packaging:** `npm run package` (a thin wrapper around
+`vsce package --no-dependencies`) runs the build automatically
 (`vscode:prepublish`) and produces a self-contained `.vsix` (no
 `node_modules` needed at install time) you can install via
 `code --install-extension` or the Extensions view's "Install from VSIX...".
+The `--no-dependencies` flag is required, not cosmetic: without it, `vsce`'s
+default dependency-detection step prunes `devDependencies` (which is where
+`vscode-languageserver`/`vscode-languageclient`/etc. live) from
+`node_modules` *before* the esbuild bundling step runs, so the build fails
+looking for packages that were just deleted. Everything actually needed at
+runtime is already bundled into `out/` by esbuild, so there's nothing for
+`vsce` to detect here.
 
 **Settings:**
 - `m4.maxIncludeDepth` (default 8) — how many levels of `include()`/`sinclude()`
