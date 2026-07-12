@@ -117,7 +117,7 @@ file) starts every file with:
 
 ```m4
 changequote([[,]])dnl
-changecom(<!--,-->)dnl
+changecom([[<!--]],[[-->]])dnl
 ```
 
 `[[`/`]]` doesn't collide with anything in CommonMark (single `[...]` is link
@@ -132,18 +132,22 @@ m4); switching to `<!--`/`-->` means headings now participate in expansion
 like everything else, which is usually what you actually want in a
 templated document, but is worth knowing about.
 
-**Important:** because the language server is what actually tracks
-`changequote`/`changecom`, the *static grammar's* view of a `.md.m4` file
-still assumes default backtick/apostrophe quoting and will show the same
-cascading-corruption pattern described above for any backticks in the file,
-changequote preamble or not - the grammar has no memory, full stop (this is
-the same limitation as for plain `.m4` files, just more visible here because
-Markdown uses backticks so often). It self-corrects the moment the language
-server attaches (near-instant in a normal desktop VS Code session). If
-you're relying on the web extension host (see
-[below](#what-the-language-server-still-cant-do)) or otherwise can't run the
-language server, `.md.m4` files with backticks are not going to highlight
-usably - that's a hard requirement for this mode, not a nice-to-have.
+**The `.md.m4` static grammar assumes this convention, not m4's defaults.**
+A static grammar has to hardcode *some* set of delimiters, and for `.md.m4`
+the recommended convention is the right bet: the injection grammar treats
+`[[...]]` as the m4 quote pair and `<!--`/`-->` as the m4 comment pair, and
+leaves backtick and `#` entirely to Markdown (inline code and headings).
+So a file that follows the preamble looks right from the static layer alone
+- no language server required for basic correctness, and it works even in
+themes with semantic highlighting disabled. A `.md.m4` file that *doesn't*
+follow the convention (i.e. actually uses default backtick/`#` m4 syntax)
+won't have its m4 strings/comments statically highlighted; the language
+server corrects that case, since it tracks the real live delimiters
+regardless of what either grammar assumes - its comment/string semantic
+tokens are ordinary token types every semantic-capable theme resolves.
+(This is the reverse of plain `.m4` files, whose grammar assumes the m4
+defaults - same mechanism, opposite bet, each matching what's common for
+that file type.)
 
 Also note that m4 has no idea what Markdown is: a bare macro reference
 inside a fenced code block or inline code span still expands, since m4
@@ -248,22 +252,41 @@ reports a diagnostic and stops cleanly rather than hanging.
 
 Semantic tokens can only *add* corrected classifications - they can't erase
 a stale grammar guess for a span that otherwise gets no token at all. That
-matters for two of the static grammar's hardcoded assumptions specifically:
-a bare `#` is only recognized by the analyzer when it's a live comment
-start, so after `changecom` moves comments elsewhere, a plain `#` character
-produces no token by default, leaving the grammar's unconditional `#.*$`
-comment rule to keep winning uncontested; the same happens to a builtin (or
-`dnl`) name once it's been `undefine()`'d. Both are explicitly neutralized
-with a `plainOverride` semantic token, emitted for exactly those spans and
-mapped (see `package.json`'s `semanticTokenScopes`) to each language's own
-root scope, which no theme rule matches, so it renders as ordinary text.
-This is scoped narrowly on purpose: it does *not* attempt to do the
-equivalent for a stray backtick after `changequote` moves quoting elsewhere,
-since the static grammar's quoted-string rule can match an unbounded,
-multi-line span there (as opposed to `#`/`dnl`, which the grammar only ever
-lets run to the end of the current line) - see the `.md.m4` section above
-for why that specific case is a hard requirement to run the language
-server for, not something patched over here.
+matters for two of the plain-`.m4` grammar's hardcoded assumptions
+specifically: a bare `#` is only recognized by the analyzer when it's a
+live comment start, so after `changecom` moves comments elsewhere, a plain
+`#` character produces no token by default, leaving the grammar's
+unconditional `#.*$` comment rule to keep winning uncontested; the same
+happens to a builtin (or `dnl`) name once it's been `undefine()`'d. Both
+are explicitly claimed with a `plainOverride` semantic token emitted for
+exactly those spans. Two subtleties about how that renders:
+
+- A semantic token whose type resolves to *no* theme rule at all is simply
+  ignored by VS Code - the TextMate color stays. So mapping `plainOverride`
+  to an unstyled scope would be a no-op; it's instead mapped (see
+  `package.json`'s `semanticTokenScopes`) to `meta.embedded.block.m4`,
+  because `meta.embedded` is a scope the standard VS Code theme families
+  explicitly pin to the editor's default foreground (it's the same
+  mechanism Markdown itself uses to keep code blocks un-italicized).
+  Themes that neither support semantic tokens nor style `meta.embedded`
+  will still show the stale comment color in plain `.m4` after a
+  `changecom` - if that bites you, check `editor.semanticHighlighting.enabled`
+  (some themes turn it off) or use the `.md.m4` mode, whose grammar doesn't
+  have this problem by construction.
+- In `.md.m4` the stale-`#` override is deliberately *not* emitted: that
+  grammar already gives `#` to Markdown's heading rule (the correct
+  rendering), so there's nothing stale to neutralize - and macro references
+  inside a heading still get their own tokens, since they really do expand
+  there.
+
+This is scoped narrowly on purpose: it does *not* attempt the equivalent
+for a stray backtick after `changequote` moves quoting elsewhere in a plain
+`.m4` file, since that grammar's quoted-string rule can match an unbounded,
+multi-line span (as opposed to `#`/`dnl`, which it only ever lets run to
+the end of the current line). Keeping default-quoted highlighting for plain
+`.m4` and convention-quoted highlighting for `.md.m4` - and letting the
+language server's positive tokens bridge the gap in both directions - is
+the deliberate trade.
 
 ## What the language server still can't do
 

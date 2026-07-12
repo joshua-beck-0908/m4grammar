@@ -40,9 +40,11 @@ export enum SemTokenType {
    *  says it isn't special any more. Semantic tokens only ever *add* corrected
    *  classifications - they can't erase a stale grammar guess for a span that
    *  otherwise gets no token at all - so this exists purely to explicitly
-   *  claim those specific spans and neutralize them. Mapped to the language's
-   *  own root scope (see semanticTokens.ts / package.json), which no theme
-   *  rule matches, so it renders as ordinary text. */
+   *  claim those specific spans and neutralize them. Mapped in package.json to
+   *  meta.embedded.block.m4: a semantic token whose fallback scope resolves to
+   *  NO theme rule is ignored entirely (the stale TextMate color stays
+   *  visible), and meta.embedded is a scope the standard VS Code theme
+   *  families explicitly pin to the editor's default foreground. */
   PlainOverride,
 }
 
@@ -108,6 +110,15 @@ export interface AnalyzeOptions {
   /** Seed data for builtins: name -> hover summary, and which names have a tracked side effect. */
   builtinSummaries: ReadonlyMap<string, string>;
   effectfulBuiltins: ReadonlySet<string>;
+  /** Whether a stale `#` (not a live comment start any more) should be claimed
+   *  with PlainOverride tokens. True for plain .m4, where the static grammar
+   *  wrongly keeps comment-coloring it. False for .md.m4 (m4-markdown), whose
+   *  grammar gives `#` to Markdown's heading rule - the correct rendering,
+   *  which an override would flatten back to plain text. When false, the `#`
+   *  is simply skipped and the rest of the line scans normally, so macro
+   *  references inside a heading still highlight (they really do expand
+   *  there). Defaults to true when omitted. */
+  emitStaleHashOverride?: boolean;
 }
 
 const DEFAULT_WORD_SOURCE = '[A-Za-z_][A-Za-z0-9_]*';
@@ -295,7 +306,7 @@ export class M4Analyzer {
       this.consumeMatch(PARAM_RE, SemTokenType.Parameter);
       return;
     }
-    if (this.tryStaleHashOverride()) return;
+    if (this.opts.emitStaleHashOverride !== false && this.tryStaleHashOverride()) return;
     this.top().pos += 1;
   }
 

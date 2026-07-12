@@ -1,5 +1,5 @@
 changequote([[,]])dnl
-changecom(<!--,-->)dnl
+changecom([[<!--]],[[-->]])dnl
 dnl The two lines above are the recommended preamble for any .md.m4 file -
 dnl see README.md for exactly why. Available as the m4md-preamble snippet.
 define([[PROJECT]], [[Fenceworks]])dnl

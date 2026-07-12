@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed (for real this time): `#` headings in `.md.m4` files no longer
+  render as m4 comments. The `.md.m4` injection grammar now hardcodes the
+  recommended convention instead of m4's defaults - `[[...]]` as the quote
+  pair, `<!--`/`-->` as the comment pair - and leaves `#` and backtick
+  entirely to Markdown (headings, inline code, fences). Files following the
+  `m4md-preamble` convention now render correctly from the static grammar
+  alone, with no language server and no semantic-token support required.
+- The 0.3.1 `plainOverride` fix was ineffective as shipped: VS Code ignores
+  a semantic token that resolves to no theme rule (the stale TextMate color
+  stays), and the root-scope mapping resolved to nothing. It's now mapped to
+  `meta.embedded.block.m4`, which the standard theme families pin to the
+  editor's default foreground. It also no longer fires in `.md.m4`, where a
+  stale `#` is correctly a Markdown heading that shouldn't be flattened.
+- Fixed a cascade bug found while testing the new grammar: the injection
+  applied inside its own comment/string regions (an injection selector
+  matches anywhere the root scope is on the stack), so the `<!--` rule could
+  fire inside `[[<!--]]` and swallow the rest of the file; the selector now
+  excludes `comment` and `string` scopes.
+- The `m4md-preamble` snippet and example now use the quoted
+  `changecom([[<!--]],[[-->]])` form.
+
 ## 0.3.1
 
 - Fixed: after `changecom` moves comments away from `#`, a literal `#` (e.g.

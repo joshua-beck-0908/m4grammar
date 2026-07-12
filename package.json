@@ -2,7 +2,7 @@
   "name": "m4-syntax",
   "displayName": "GNU M4 Syntax Highlighting",
   "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, .md.m4 Markdown+M4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "engines": {
@@ -74,7 +74,7 @@
       },
       {
         "id": "plainOverride",
-        "description": "A span the static grammar would still color under its hardcoded default quote/comment/keyword assumptions, even though the language server's live tracking has determined it isn't special any more (e.g. a bare # after changecom moves comments elsewhere). Mapped to the language's own root scope, which no theme rule matches, so it renders as ordinary text."
+        "description": "A span the static grammar would still color under its hardcoded default quote/comment/keyword assumptions, even though the language server's live tracking has determined it isn't special any more (e.g. a bare # after changecom moves comments elsewhere). Mapped to meta.embedded, which the standard VS Code theme families explicitly resolve to the editor's default foreground (a semantic token that resolves to no theme rule at all is ignored, leaving the stale TextMate color visible - so the fallback scope must be one themes actually style)."
       }
     ],
     "semanticTokenScopes": [
@@ -82,14 +82,14 @@
         "language": "m4",
         "scopes": {
           "macroCall": ["entity.name.function.unresolved.m4"],
-          "plainOverride": ["source.m4"]
+          "plainOverride": ["meta.embedded.block.m4"]
         }
       },
       {
         "language": "m4-markdown",
         "scopes": {
           "macroCall": ["entity.name.function.unresolved.m4"],
-          "plainOverride": ["text.html.markdown.m4"]
+          "plainOverride": ["meta.embedded.block.m4"]
         }
       }
     ],

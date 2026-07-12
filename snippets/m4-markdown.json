@@ -3,7 +3,7 @@
     "prefix": "m4md-preamble",
     "body": [
       "changequote([[,]])dnl",
-      "changecom(<!--,-->)dnl",
+      "changecom([[<!--]],[[-->]])dnl",
       "$0"
     ],
     "description": "Recommended header for a .md.m4 file: switches m4's quote characters away from the default backtick/apostrophe pair (which collides with Markdown's `inline code` and ```fenced``` blocks) to [[double brackets]], and its comment delimiters to <!-- HTML comments --> (also hidden by Markdown's own renderer, and doesn't collide with # headings)."

@@ -102,6 +102,9 @@ function analyze(document: TextDocument): AnalyzeResult {
     resolveAndRead,
     builtinSummaries: BUILTIN_SUMMARIES,
     effectfulBuiltins: EFFECTFUL_BUILTINS,
+    // In m4-markdown, a stale `#` is correctly rendered by the grammar as a
+    // Markdown heading; overriding it to plain would be a downgrade there.
+    emitStaleHashOverride: document.languageId !== 'm4-markdown',
   });
   return analyzer.analyze();
 }
