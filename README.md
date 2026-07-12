@@ -177,6 +177,18 @@ looking for packages that were just deleted. Everything actually needed at
 runtime is already bundled into `out/` by esbuild, so there's nothing for
 `vsce` to detect here.
 
+`@vscode/vsce` is pinned to the `2.x` line (which only requires Node >= 16)
+rather than the current `3.x` (which requires Node >= 20, and its `undici`
+dependency will crash with `ReferenceError: File is not defined` on anything
+older, since `File` only became a Node global in v20). This is purely about
+what your local machine needs to *run the packaging tool* - it has no
+bearing on the extension itself, which VS Code always runs with its own
+bundled Node regardless of what's on your `PATH` (and esbuild already
+targets `node18` for the output in `out/`, well below either requirement).
+If you're already on Node 20+ and would rather track the latest `vsce`,
+`npm install --save-dev @vscode/vsce@latest` is safe - nothing else in this
+repo depends on which major version of `vsce` you use.
+
 **Settings:**
 - `m4.maxIncludeDepth` (default 8) — how many levels of `include()`/`sinclude()`
   the language server will follow.

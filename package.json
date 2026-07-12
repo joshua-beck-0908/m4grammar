@@ -114,7 +114,7 @@
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^2.32.0",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.75.0",
     "esbuild": "^0.20.0",
