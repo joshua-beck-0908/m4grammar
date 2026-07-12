@@ -246,6 +246,25 @@ calls at the actual top level are still fully parsed (recursively, with
 correct comma/paren-depth tracking); if *those* are unbalanced, the analyzer
 reports a diagnostic and stops cleanly rather than hanging.
 
+Semantic tokens can only *add* corrected classifications - they can't erase
+a stale grammar guess for a span that otherwise gets no token at all. That
+matters for two of the static grammar's hardcoded assumptions specifically:
+a bare `#` is only recognized by the analyzer when it's a live comment
+start, so after `changecom` moves comments elsewhere, a plain `#` character
+produces no token by default, leaving the grammar's unconditional `#.*$`
+comment rule to keep winning uncontested; the same happens to a builtin (or
+`dnl`) name once it's been `undefine()`'d. Both are explicitly neutralized
+with a `plainOverride` semantic token, emitted for exactly those spans and
+mapped (see `package.json`'s `semanticTokenScopes`) to each language's own
+root scope, which no theme rule matches, so it renders as ordinary text.
+This is scoped narrowly on purpose: it does *not* attempt to do the
+equivalent for a stray backtick after `changequote` moves quoting elsewhere,
+since the static grammar's quoted-string rule can match an unbounded,
+multi-line span there (as opposed to `#`/`dnl`, which the grammar only ever
+lets run to the end of the current line) - see the `.md.m4` section above
+for why that specific case is a hard requirement to run the language
+server for, not something patched over here.
+
 ## What the language server still can't do
 
 This is now a much shorter list than "impossible with a grammar alone,"

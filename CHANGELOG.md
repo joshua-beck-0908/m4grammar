@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed: after `changecom` moves comments away from `#`, a literal `#` (e.g.
+  a Markdown-style heading, or just a `#` in prose) stayed colored as a
+  comment. Semantic tokens can only *add* corrected classifications for
+  spans the language server positively recognizes; a `#` under a changed
+  comment character is simply an ordinary, unrecognized character to the
+  scanner, so it emitted no token at all, and the static grammar's hardcoded
+  `#.*$` rule kept winning uncontested. Same underlying issue for a builtin
+  name (or `dnl`) after it's been `undefine()`'d - the grammar still colors
+  it as a keyword regardless of live binding. Both are now explicitly
+  neutralized with a new `plainOverride` semantic token type, mapped to each
+  language's own root scope so it renders as ordinary text.
+- Pinned `@vscode/vsce` to the `2.x` line (was `3.x`, which requires Node 20
+  and crashes on Node 18 with `ReferenceError: File is not defined`) and
+  fixed `npm run package` to pass `--no-dependencies` (without it, `vsce`
+  prunes the `devDependencies` esbuild needs to bundle *before* running the
+  build).
+
 ## 0.3.0
 
 - Added a "Markdown+M4" language mode for `.md.m4` files: the stock Markdown

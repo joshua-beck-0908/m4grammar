@@ -34,6 +34,16 @@ export enum SemTokenType {
   MacroUndecl,
   Parameter,
   Number,
+  /** A span the *static* grammar would still color under its hardcoded default
+   *  assumptions (a bare `#` when the live comment character is no longer `#`;
+   *  a builtin/`dnl` name that's been undefined), even though live tracking
+   *  says it isn't special any more. Semantic tokens only ever *add* corrected
+   *  classifications - they can't erase a stale grammar guess for a span that
+   *  otherwise gets no token at all - so this exists purely to explicitly
+   *  claim those specific spans and neutralize them. Mapped to the language's
+   *  own root scope (see semanticTokens.ts / package.json), which no theme
+   *  rule matches, so it renders as ordinary text. */
+  PlainOverride,
 }
 
 export interface SemToken {
@@ -285,7 +295,50 @@ export class M4Analyzer {
       this.consumeMatch(PARAM_RE, SemTokenType.Parameter);
       return;
     }
+    if (this.tryStaleHashOverride()) return;
     this.top().pos += 1;
+  }
+
+  /** Reaching here means `tryComment()` already determined that a literal
+   *  `#` at the current position is *not* a live comment start (either
+   *  `changecom` moved it elsewhere, or comments are disabled). The static
+   *  grammar has no such awareness and always matches `#.*$` as a comment.
+   *  Re-scans the rest of the line (properly recognizing any real m4
+   *  constructs still in it, e.g. a macro call after the stale `#`) and
+   *  fills the plain gaps with PlainOverride tokens so that stale coloring
+   *  can't show through. */
+  private tryStaleHashOverride(): boolean {
+    const f = this.top();
+    if (f.text.charAt(f.pos) !== '#') return false;
+    const nl = f.text.indexOf('\n', f.pos);
+    const lineEnd = nl === -1 ? f.text.length : nl;
+    let runStart = f.pos;
+    while (f.pos < lineEnd) {
+      const before = f.pos;
+      const tokensBefore = this.tokens.length;
+      const attempted =
+        this.tryComment() ||
+        this.tryDnl() ||
+        (this.quoteLeft.length > 0 && this.startsWithAt(this.quoteLeft) && (this.scanQuotedString(), true)) ||
+        this.tryWord(true) ||
+        this.consumeIfMatch(NUMBER_RE, SemTokenType.Number) ||
+        this.consumeIfMatch(PARAM_RE, SemTokenType.Parameter);
+      if (attempted) {
+        // tryWord() can silently consume an ordinary unbound word (no call,
+        // no builtin) without emitting any token for it - that's plain text
+        // as far as this override is concerned, so only flush/reset the run
+        // when something was actually emitted; otherwise let the run absorb
+        // the silently-consumed span too.
+        if (this.tokens.length > tokensBefore) {
+          if (before > runStart) this.emitToken(runStart, before, SemTokenType.PlainOverride);
+          runStart = f.pos;
+        }
+        continue;
+      }
+      f.pos += 1;
+    }
+    if (f.pos > runStart) this.emitToken(runStart, f.pos, SemTokenType.PlainOverride);
+    return true;
   }
 
   private consumeMatch(re: RegExp, type: SemTokenType): void {
@@ -413,9 +466,15 @@ export class M4Analyzer {
     const binding = this.currentBinding(w);
     const isCall = allowCall && f.text.charAt(nameEnd) === '(';
 
+    // A name the static grammar always highlights as a builtin/directive (or,
+    // for "dnl", its own keyword) regardless of live binding - if it's been
+    // undefine()'d and isn't being called, the grammar's guess is now stale.
+    const isStaleKeyword = !binding && !isCall && this.inQuoteDepth === 0 && this.opts.builtinSummaries.has(w);
+
     let tokenType: SemTokenType | undefined;
     if (binding) tokenType = binding.kind === 'builtin' ? SemTokenType.FunctionBuiltin : SemTokenType.FunctionUser;
     else if (isCall) tokenType = SemTokenType.FunctionUnknown;
+    else if (isStaleKeyword) tokenType = SemTokenType.PlainOverride;
 
     if (tokenType !== undefined) this.emitToken(nameStart, nameEnd, tokenType);
     if (binding || isCall) this.emitUsage({ start: nameStart, end: nameEnd, name: w, uri: f.uri, resolved: binding });
@@ -432,6 +491,16 @@ export class M4Analyzer {
       // Bare invocation with no parens at all - a real, distinct case for
       // changequote/changecom (resets to defaults), not the same as `foo()`.
       this.applyEffect(w, { args: [], closed: true }, { nameStart, nameEnd, callEnd: nameEnd });
+    } else if (isStaleKeyword && w === 'dnl') {
+      // The static grammar's dnl-statement rule also swallows the rest of
+      // this line as a (stale) comment-colored span. Simplification: this
+      // doesn't re-scan that span for other real m4 constructs, unlike the
+      // stale-`#` case - an undefined `dnl` sharing a line with something
+      // else worth highlighting is a rare enough combination not to bother.
+      const nl = f.text.indexOf('\n', f.pos);
+      const end = nl === -1 ? f.text.length : nl;
+      if (end > f.pos) this.emitToken(f.pos, end, SemTokenType.PlainOverride);
+      f.pos = end;
     }
     return true;
   }

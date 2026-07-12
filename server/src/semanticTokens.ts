@@ -2,7 +2,7 @@ import { SemanticTokensLegend } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { SemToken, SemTokenType } from './lexer';
 
-export const TOKEN_TYPES = ['comment', 'keyword', 'string', 'function', 'parameter', 'number', 'macroCall'] as const;
+export const TOKEN_TYPES = ['comment', 'keyword', 'string', 'function', 'parameter', 'number', 'macroCall', 'plainOverride'] as const;
 export const TOKEN_MODIFIERS = ['defaultLibrary', 'declaration', 'modification'] as const;
 
 export const LEGEND: SemanticTokensLegend = {
@@ -40,6 +40,8 @@ function classify(type: SemTokenType): { type: number; mods: number } {
       return { type: typeIndex('parameter'), mods: 0 };
     case SemTokenType.Number:
       return { type: typeIndex('number'), mods: 0 };
+    case SemTokenType.PlainOverride:
+      return { type: typeIndex('plainOverride'), mods: 0 };
   }
 }
 
