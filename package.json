@@ -1,0 +1,43 @@
+{
+  "name": "m4-syntax",
+  "displayName": "GNU M4 Syntax Highlighting",
+  "description": "Syntax highlighting for the GNU m4 macro processor language (.m4 files, and m4 code cells in Jupyter notebooks).",
+  "version": "0.1.0",
+  "publisher": "your-publisher-id",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "m4",
+    "gnu m4",
+    "macro",
+    "autoconf",
+    "preprocessor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joshua-beck-0908/m4grammar"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "m4",
+        "aliases": ["M4", "GNU M4", "m4"],
+        "extensions": [".m4", ".m4i", ".m4f"],
+        "filenames": ["aclocal.m4"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "m4",
+        "scopeName": "source.m4",
+        "path": "./syntaxes/m4.tmLanguage.json"
+      }
+    ]
+  }
+}
