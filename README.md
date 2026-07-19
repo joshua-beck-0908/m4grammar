@@ -158,6 +158,47 @@ can't rely on code spans/fences to "protect" example text containing what
 looks like a macro name; quote it with m4's own quotes if you want it to
 survive literally.
 
+## Unicode identifiers (wrapper dialect)
+
+Standard GNU m4 restricts macro names to ASCII `[_A-Za-z][_A-Za-z0-9]*`;
+non-ASCII bytes are single-character tokens copied straight through. Some
+wrapper scripts extend m4 so that **every byte with the high bit set
+(0x80-0xFF) is a valid identifier byte** - which, in UTF-8, is exactly the
+same as saying every non-ASCII *character* is an identifier character,
+since all bytes of a multi-byte UTF-8 sequence have the high bit set. In
+that dialect this works (see `examples/unicode.md.m4`):
+
+```m4
+define(≡📅,2026-07-19)
+*Written on ≡📅*
+```
+
+expanding to `*Written on 2026-07-19*`.
+
+This extension supports that dialect, in both layers:
+
+- The **static grammars** treat non-ASCII characters as identifier
+  characters unconditionally (a TextMate grammar can't be toggled by a
+  setting). So `≡📅(x)` highlights as a macro call, and word boundaries are
+  dialect-style: `édnl` reads as one plain identifier, not an `é` followed
+  by a `dnl` invocation. For standard-m4 files this is almost always
+  invisible - bare words get no static styling either way, and ASCII text
+  tokenizes identically under both rules - but it is technically a
+  dialect bet, in the same spirit as the `.md.m4` grammar's delimiter bet.
+- The **language server** honors the `m4.unicodeIdentifiers` setting
+  (default `true`). When on, `define(≡📅, ...)` is tracked like any other
+  definition: the bare `≡📅` reference later highlights, hovers to its
+  body, and supports go-to-definition. When off, the analyzer applies
+  strict GNU m4 tokenization: Unicode names aren't tracked (real m4 would
+  reject them), and boundary semantics revert to standard (in `édnl`,
+  standard m4 really does invoke `dnl`, and the analyzer will treat it
+  that way - correcting the static grammar's dialect assumption with its
+  own semantic tokens where they differ).
+
+All internal offsets are UTF-16 code units (matching the LSP's default
+position encoding), so identifiers containing astral-plane characters like
+emoji keep correct highlight spans and hover ranges.
+
 ## Using it
 
 **Development / trying it out:** `npm install`, then open this folder in VS
@@ -196,6 +237,10 @@ repo depends on which major version of `vsce` you use.
 **Settings:**
 - `m4.maxIncludeDepth` (default 8) — how many levels of `include()`/`sinclude()`
   the language server will follow.
+- `m4.unicodeIdentifiers` (default `true`) — treat every non-ASCII character
+  as an identifier character in the language server's tokenization (the
+  wrapper dialect described [above](#unicode-identifiers-wrapper-dialect));
+  set to `false` for strict GNU m4 semantics.
 - `m4.trace.server` — standard LSP client/server message tracing, for
   debugging the extension itself.
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0
+
+- Added Unicode-identifier support (the wrapper-script dialect where every
+  UTF-8 byte with the high bit set - equivalently, every non-ASCII
+  character - is a valid identifier character), so `define(≡📅,2026-07-19)`
+  defines a macro named `≡📅` and a later bare `≡📅` is recognized as a
+  reference, with highlighting, hover, and go-to-definition.
+- The static grammars treat non-ASCII as identifier characters
+  unconditionally (grammars can't be setting-toggled; ASCII files tokenize
+  identically either way). The language server honors a new
+  `m4.unicodeIdentifiers` setting (default `true`); set it to `false` for
+  strict GNU m4 tokenization, where non-ASCII bytes are pass-through
+  tokens and word boundaries fall accordingly.
+- Editor word operations (double-click selection etc.) include non-ASCII
+  identifier characters via updated `wordPattern`s.
+- Added `examples/unicode.md.m4`.
+
 ## 0.3.2
 
 - Fixed (for real this time): `#` headings in `.md.m4` files no longer

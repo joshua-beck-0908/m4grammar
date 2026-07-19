@@ -119,16 +119,34 @@ export interface AnalyzeOptions {
    *  references inside a heading still highlight (they really do expand
    *  there). Defaults to true when omitted. */
   emitStaleHashOverride?: boolean;
+  /** Unicode-identifier wrapper dialect (the m4.unicodeIdentifiers setting):
+   *  every non-ASCII character counts as an identifier character, so
+   *  `define(≡📅, ...)` defines a macro named ≡📅 and a bare `≡📅` later is a
+   *  reference to it. In UTF-8 terms this is exactly "every byte with the
+   *  high bit set is an identifier byte", since all bytes of a multi-byte
+   *  UTF-8 sequence have the high bit set. Standard GNU m4 restricts words
+   *  to ASCII [_A-Za-z][_A-Za-z0-9]*; non-ASCII bytes are single-character
+   *  tokens copied through, which also changes where word boundaries fall
+   *  (in standard m4, `é` immediately followed by `dnl` still invokes dnl;
+   *  in this dialect `édnl` is one plain identifier). Defaults to true when
+   *  omitted, matching the static grammar's (unconditional) bet. */
+  unicodeIdentifiers?: boolean;
 }
 
-const DEFAULT_WORD_SOURCE = '[A-Za-z_][A-Za-z0-9_]*';
+const ASCII_WORD_SOURCE = '[A-Za-z_][A-Za-z0-9_]*';
+// The \u0080-\uffff range, on a JS (UTF-16) string, covers every non-ASCII
+// character: astral-plane characters like the calendar emoji are surrogate
+// pairs whose halves both fall inside that range, so the whole character is
+// consumed unit by unit and identifier spans stay contiguous.
+const UNICODE_WORD_SOURCE = '[A-Za-z_\\u0080-\\uffff][A-Za-z0-9_\\u0080-\\uffff]*';
 const NUMBER_RE = /(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)/y;
 const PARAM_RE = /\$(?:\{[0-9]+\}|[0-9]+|#|\*|@)/y;
 const WHITESPACE_RE = /[ \t\r\n\f\v]/;
-const VALID_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ASCII_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const UNICODE_NAME_RE = new RegExp(`^${UNICODE_WORD_SOURCE}$`);
 
-function makeDefaultWordRegex(): RegExp {
-  return new RegExp(DEFAULT_WORD_SOURCE, 'y');
+function makeDefaultWordRegex(unicodeIdentifiers: boolean): RegExp {
+  return new RegExp(unicodeIdentifiers ? UNICODE_WORD_SOURCE : ASCII_WORD_SOURCE, 'y');
 }
 
 interface SourceFrame {
@@ -165,7 +183,9 @@ export class M4Analyzer {
   private commentBegin = '#';
   private commentEnd = '\n';
   private commentsDisabled = false;
-  private wordRegex: RegExp = makeDefaultWordRegex();
+  private wordRegex: RegExp;
+  private readonly validNameRe: RegExp;
+  private readonly unicodeIdentifiers: boolean;
   private inQuoteDepth = 0;
 
   private symtab = new Map<string, MacroDefFrame[]>();
@@ -178,6 +198,9 @@ export class M4Analyzer {
   constructor(rootUri: string, rootText: string, rootBaseDir: string, opts: AnalyzeOptions) {
     this.rootUri = rootUri;
     this.opts = opts;
+    this.unicodeIdentifiers = opts.unicodeIdentifiers !== false;
+    this.wordRegex = makeDefaultWordRegex(this.unicodeIdentifiers);
+    this.validNameRe = this.unicodeIdentifiers ? UNICODE_NAME_RE : ASCII_NAME_RE;
     this.frames = [{ uri: rootUri, text: rootText, pos: 0, baseDir: rootBaseDir }];
     for (const [name, summary] of opts.builtinSummaries) {
       this.symtab.set(name, [{ kind: 'builtin', summary }]);
@@ -671,7 +694,7 @@ export class M4Analyzer {
 
   private effectDefine(name: 'define' | 'pushdef', call: ParsedCall): void {
     const nameArg = call.args[0]?.literal;
-    if (!nameArg || !VALID_NAME_RE.test(nameArg.text)) return;
+    if (!nameArg || !this.validNameRe.test(nameArg.text)) return;
     const bodyArg = call.args[1]?.literal;
     const uri = this.top().uri;
     const frame: MacroDefFrame = {
@@ -693,7 +716,7 @@ export class M4Analyzer {
   private effectUndefine(name: 'undefine' | 'popdef', call: ParsedCall): void {
     for (const arg of call.args) {
       const lit = arg.literal;
-      if (!lit || !VALID_NAME_RE.test(lit.text)) continue;
+      if (!lit || !this.validNameRe.test(lit.text)) continue;
       this.emitTokenReplacing(lit.innerStart, lit.innerEnd, SemTokenType.MacroUndecl);
       if (name === 'undefine') this.symtab.delete(lit.text);
       else this.popOne(lit.text);
@@ -752,7 +775,7 @@ export class M4Analyzer {
     const r = call.args[0]?.literal;
     if (r === undefined) return;
     if (r.text === '') {
-      this.wordRegex = makeDefaultWordRegex();
+      this.wordRegex = makeDefaultWordRegex(this.unicodeIdentifiers);
       return;
     }
     try {

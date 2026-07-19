@@ -2,7 +2,7 @@
   "name": "m4-syntax",
   "displayName": "GNU M4 Syntax Highlighting",
   "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, .md.m4 Markdown+M4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "engines": {
@@ -102,6 +102,11 @@
           "minimum": 0,
           "maximum": 32,
           "description": "Maximum depth of include()/sinclude() files the language server will follow to resolve macro definitions."
+        },
+        "m4.unicodeIdentifiers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat every non-ASCII character (any UTF-8 byte with the high bit set) as a valid macro-identifier character, so define(≡📅, ...) defines a macro named ≡📅 and a later bare ≡📅 is highlighted as a reference to it. This matches wrapper scripts that extend m4 with Unicode identifiers; standard GNU m4 restricts identifiers to ASCII [_A-Za-z0-9] and copies non-ASCII bytes through as plain text. Disable for strict GNU m4 tokenization in the language server (the static grammar's identifier boundaries are compiled in and always permissive either way)."
         },
         "m4.trace.server": {
           "type": "string",

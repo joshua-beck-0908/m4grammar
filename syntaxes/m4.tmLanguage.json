@@ -2,11 +2,21 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "M4",
   "scopeName": "source.m4",
-  "fileTypes": ["m4", "m4i", "m4f"],
+  "fileTypes": [
+    "m4",
+    "m4i",
+    "m4f"
+  ],
   "patterns": [
-    { "include": "#comment" },
-    { "include": "#dnl-statement" },
-    { "include": "#quotable-code" }
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#dnl-statement"
+    },
+    {
+      "include": "#quotable-code"
+    }
   ],
   "repository": {
     "comment": {
@@ -15,10 +25,12 @@
       "match": "#.*$"
     },
     "dnl-statement": {
-      "comment": "dnl is an ordinary builtin macro, but it works by blindly discarding raw characters up to and including the next newline (see skip_line() in input.c) - it does NOT respect quoting the way # comments do, so no nested patterns are applied inside it.",
-      "begin": "(?<![A-Za-z0-9_])(dnl)(?![A-Za-z0-9_])",
+      "comment": "dnl is an ordinary builtin macro, but it works by blindly discarding raw characters up to and including the next newline (see skip_line() in input.c) - it does NOT respect quoting the way # comments do, so no nested patterns are applied inside it. Word boundaries include non-ASCII characters (the unicode-identifier dialect this extension targets - see README): in that dialect, x≡dnl is one identifier, not a dnl invocation.",
+      "begin": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(dnl)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
       "beginCaptures": {
-        "1": { "name": "keyword.control.dnl.m4" }
+        "1": {
+          "name": "keyword.control.dnl.m4"
+        }
       },
       "end": "\\n",
       "name": "comment.line.dnl.m4"
@@ -26,38 +38,60 @@
     "quoted-string": {
       "comment": "Default-quoted m4 string: `...' with balanced nesting. changequote(...) can redefine the delimiters to anything at runtime; that is impossible to follow with a static grammar, so only the default backtick/apostrophe pair is recognized. See README. A quoted string is usually a deferred macro body, so its contents are tokenized as m4 code too (but comments/dnl are deliberately excluded here, since quoting inhibits both).",
       "begin": "`",
-      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.m4" } },
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.m4"
+        }
+      },
       "end": "'",
-      "endCaptures": { "0": { "name": "punctuation.definition.string.end.m4" } },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.m4"
+        }
+      },
       "name": "string.quoted.other.m4",
       "patterns": [
-        { "include": "#quotable-code" }
+        {
+          "include": "#quotable-code"
+        }
       ]
     },
     "quotable-code": {
       "comment": "Shared building blocks that make sense both at the top level and inside a quoted string (which is usually just a not-yet-expanded macro body). Comments and dnl are intentionally NOT part of this set - both require unquoted, unexpanded top-level text.",
       "patterns": [
-        { "include": "#quoted-string" },
-        { "include": "#directive-call" },
-        { "include": "#builtin-call" },
-        { "include": "#macro-call" },
-        { "include": "#parameter-reference" },
-        { "include": "#numeric-literal" }
+        {
+          "include": "#quoted-string"
+        },
+        {
+          "include": "#directive-call"
+        },
+        {
+          "include": "#builtin-call"
+        },
+        {
+          "include": "#macro-call"
+        },
+        {
+          "include": "#parameter-reference"
+        },
+        {
+          "include": "#numeric-literal"
+        }
       ]
     },
     "directive-call": {
       "comment": "Macros that change m4's own lexical rules at runtime. Highlighted distinctly as a reminder that everything after this call may no longer follow the syntax this grammar assumes.",
-      "match": "(?<![A-Za-z0-9_])(changequote|changecom|changeword)(?![A-Za-z0-9_])",
+      "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(changequote|changecom|changeword)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
       "name": "keyword.control.directive.m4"
     },
     "builtin-call": {
       "comment": "GNU m4 builtin macro names. These are ordinary macros (users may redefine, undefine, or pushdef/popdef over them), so this is a lexical hint, not a guarantee that the name still means this at any given point in the file.",
-      "match": "(?<![A-Za-z0-9_])(__file__|__line__|__program__|__gnu__|__unix__|__windows__|__os2__|builtin|debugmode|debugfile|decr|define|defn|divert|divnum|dumpdef|errprint|esyscmd|eval|format|ifdef|ifelse|include|incr|index|indir|len|m4exit|m4wrap|maketemp|mkstemp|patsubst|popdef|pushdef|regexp|shift|sinclude|substr|syscmd|sysval|traceoff|traceon|translit|undefine|undivert|unix|os2|windows)(?![A-Za-z0-9_])",
+      "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(__file__|__line__|__program__|__gnu__|__unix__|__windows__|__os2__|builtin|debugmode|debugfile|decr|define|defn|divert|divnum|dumpdef|errprint|esyscmd|eval|format|ifdef|ifelse|include|incr|index|indir|len|m4exit|m4wrap|maketemp|mkstemp|patsubst|popdef|pushdef|regexp|shift|sinclude|substr|syscmd|sysval|traceoff|traceon|translit|undefine|undivert|unix|os2|windows)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
       "name": "support.function.builtin.m4"
     },
     "macro-call": {
-      "comment": "Heuristic only: m4 has no syntax for 'this identifier is a macro' - ANY bare word can be a user-defined macro invocation, indistinguishable from literal text without evaluating define/pushdef elsewhere in the program (possibly in another included file). We highlight identifiers immediately followed by '(' (the m4 rule for 'this call takes arguments') as likely macro calls; bare words with no arguments are left unstyled since they are equally likely to be plain output text. See README.",
-      "match": "(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)(?=\\()",
+      "comment": "Heuristic only: m4 has no syntax for 'this identifier is a macro' - ANY bare word can be a user-defined macro invocation, indistinguishable from literal text without evaluating define/pushdef elsewhere in the program (possibly in another included file). We highlight identifiers immediately followed by '(' (the m4 rule for 'this call takes arguments') as likely macro calls; bare words with no arguments are left unstyled since they are equally likely to be plain output text. See README. Identifiers may contain any non-ASCII character (equivalently, in UTF-8: any byte with the high bit set), supporting the unicode-identifier wrapper dialect described in the README; standard GNU m4 restricts words to ASCII [A-Za-z0-9_].",
+      "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}])([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(?=\\()",
       "name": "entity.name.function.m4"
     },
     "parameter-reference": {
@@ -67,7 +101,7 @@
     },
     "numeric-literal": {
       "comment": "Covers the common decimal/0x/0b/0-octal forms accepted by eval(). GNU m4's eval() also accepts arbitrary radix literals of the form BASE:DIGITS (base 2-36); that form is not specially highlighted.",
-      "match": "(?<![A-Za-z0-9_])(0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?![A-Za-z0-9_])",
+      "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
       "name": "constant.numeric.m4"
     }
   }

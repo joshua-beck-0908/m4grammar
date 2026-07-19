@@ -32,6 +32,7 @@ const EFFECTFUL_BUILTINS = new Set(BUILTINS.filter((b) => b.hasTrackedEffect).ma
 
 const MAX_INCLUDE_FILE_BYTES = 2 * 1024 * 1024;
 let maxIncludeDepth = 8;
+let unicodeIdentifiers = true;
 let workspaceRoots: string[] = [];
 
 interface CachedAnalysis {
@@ -47,8 +48,9 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
     const p = safeFsPath(params.rootUri);
     if (p) workspaceRoots = [p];
   }
-  const cfgDepth = (params.initializationOptions as { maxIncludeDepth?: number } | undefined)?.maxIncludeDepth;
-  if (typeof cfgDepth === 'number') maxIncludeDepth = cfgDepth;
+  const initOpts = params.initializationOptions as { maxIncludeDepth?: number; unicodeIdentifiers?: boolean } | undefined;
+  if (typeof initOpts?.maxIncludeDepth === 'number') maxIncludeDepth = initOpts.maxIncludeDepth;
+  if (typeof initOpts?.unicodeIdentifiers === 'boolean') unicodeIdentifiers = initOpts.unicodeIdentifiers;
 
   return {
     capabilities: {
@@ -62,10 +64,19 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 });
 
 connection.onDidChangeConfiguration((change) => {
-  const settings = change.settings as { m4?: { maxIncludeDepth?: number } } | undefined;
+  const settings = change.settings as { m4?: { maxIncludeDepth?: number; unicodeIdentifiers?: boolean } } | undefined;
   const depth = settings?.m4?.maxIncludeDepth;
-  if (typeof depth === 'number') {
+  const unicode = settings?.m4?.unicodeIdentifiers;
+  let changed = false;
+  if (typeof depth === 'number' && depth !== maxIncludeDepth) {
     maxIncludeDepth = depth;
+    changed = true;
+  }
+  if (typeof unicode === 'boolean' && unicode !== unicodeIdentifiers) {
+    unicodeIdentifiers = unicode;
+    changed = true;
+  }
+  if (changed) {
     analysisCache.clear();
     for (const doc of documents.all()) void validate(doc);
   }
@@ -105,6 +116,7 @@ function analyze(document: TextDocument): AnalyzeResult {
     // In m4-markdown, a stale `#` is correctly rendered by the grammar as a
     // Markdown heading; overriding it to plain would be a downgrade there.
     emitStaleHashOverride: document.languageId !== 'm4-markdown',
+    unicodeIdentifiers,
   });
   return analyzer.analyze();
 }

@@ -33,6 +33,7 @@ export function activate(context: ExtensionContext): void {
     },
     initializationOptions: {
       maxIncludeDepth: workspace.getConfiguration('m4').get('maxIncludeDepth', 8),
+      unicodeIdentifiers: workspace.getConfiguration('m4').get('unicodeIdentifiers', true),
     },
   };
 

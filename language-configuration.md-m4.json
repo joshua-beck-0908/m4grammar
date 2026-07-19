@@ -24,5 +24,5 @@
     ["*", "*"],
     ["_", "_"]
   ],
-  "wordPattern": "[A-Za-z_][A-Za-z0-9_]*"
+  "wordPattern": "[A-Za-z_\\u0080-\\uFFFF][A-Za-z0-9_\\u0080-\\uFFFF]*"
 }
