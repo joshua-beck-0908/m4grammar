@@ -116,38 +116,81 @@ situation: pick different characters. `examples/sample.md.m4` (and the
 file) starts every file with:
 
 ```m4
-changequote([[,]])dnl
-changecom([[<!--]],[[-->]])dnl
+changequote(⟦,⟧)dnl
+changecom(⟦<!--⟧,⟦-->⟧)dnl
 ```
 
-`[[`/`]]` doesn't collide with anything in CommonMark (single `[...]` is link
-syntax, but doubled brackets aren't used for anything). `<!--`/`-->` is a
-deliberate choice, not just an arbitrary safe one: it's Markdown's *own*
-HTML-comment syntax, so anything you wrap in it is simultaneously an m4
-comment (protected from macro expansion, but still copied to the output)
-*and* hidden from the rendered Markdown - one wrapper does both jobs. The
-one trade-off: with the default `#` comment character, headings were
-*accidentally* protected from macro expansion (a heading is a comment to
-m4); switching to `<!--`/`-->` means headings now participate in expansion
-like everything else, which is usually what you actually want in a
-templated document, but is worth knowing about.
+`⟦`/`⟧` (U+27E6/U+27E7, mathematical white square brackets) collide with
+nothing in CommonMark and almost nothing in prose, and this extension
+registers them as a **matching bracket pair**: bracket-pair colorization
+applies to them, and `Ctrl+Shift+\` jumps between the two ends of a quoted
+string. (The `[[`/`]]` doubled-bracket convention from earlier versions is
+still recognized; jumping across those works through the ordinary single
+`[`/`]` pair.) `<!--`/`-->` is a deliberate choice, not just an arbitrary
+safe one: it's Markdown's *own* HTML-comment syntax, so anything you wrap
+in it is simultaneously an m4 comment (protected from macro expansion, but
+still copied to the output) *and* hidden from the rendered Markdown - one
+wrapper does both jobs. The one trade-off: with the default `#` comment
+character, headings were *accidentally* protected from macro expansion (a
+heading is a comment to m4); switching to `<!--`/`-->` means headings now
+participate in expansion like everything else, which is usually what you
+actually want in a templated document, but is worth knowing about.
 
 **The `.md.m4` static grammar assumes this convention, not m4's defaults.**
 A static grammar has to hardcode *some* set of delimiters, and for `.md.m4`
 the recommended convention is the right bet: the injection grammar treats
-`[[...]]` as the m4 quote pair and `<!--`/`-->` as the m4 comment pair, and
-leaves backtick and `#` entirely to Markdown (inline code and headings).
-So a file that follows the preamble looks right from the static layer alone
-- no language server required for basic correctness, and it works even in
-themes with semantic highlighting disabled. A `.md.m4` file that *doesn't*
-follow the convention (i.e. actually uses default backtick/`#` m4 syntax)
-won't have its m4 strings/comments statically highlighted; the language
-server corrects that case, since it tracks the real live delimiters
-regardless of what either grammar assumes - its comment/string semantic
-tokens are ordinary token types every semantic-capable theme resolves.
-(This is the reverse of plain `.m4` files, whose grammar assumes the m4
-defaults - same mechanism, opposite bet, each matching what's common for
-that file type.)
+`⟦...⟧` (and `[[...]]`) as the m4 quote pairs and `<!--`/`-->` as the m4
+comment pair, and leaves backtick and `#` entirely to Markdown (inline code
+and headings). So a file that follows the preamble looks right from the
+static layer alone - no language server required for basic correctness, and
+it works even in themes with semantic highlighting disabled. A `.md.m4`
+file that *doesn't* follow the convention (i.e. actually uses default
+backtick/`#` m4 syntax) won't have its m4 strings/comments statically
+highlighted; the language server corrects that case, since it tracks the
+real live delimiters regardless of what either grammar assumes - its
+comment/string semantic tokens are ordinary token types every
+semantic-capable theme resolves. (This is the reverse of plain `.m4` files,
+whose grammar assumes the m4 defaults - same mechanism, opposite bet, each
+matching what's common for that file type.)
+
+### Bracket matching, and why backticks used to block it
+
+VS Code's bracket matcher works on the *TextMate token type* of each
+character: brackets inside tokens typed as String or Comment are invisible
+to it, by design (a `(` inside a quoted string shouldn't pair with code
+outside it). Any scope containing the word `string` - including the
+`punctuation.definition.string.*` scopes that quote delimiters normally
+carry - types a token as String. Two consequences, and what this extension
+does about them:
+
+- **Quote delimiters are made matchable on purpose.** The `⟦`/`⟧` (and
+  `[[`/`]]`) delimiter tokens carry `meta.embedded.block.m4` alongside
+  their punctuation scope; `meta.embedded` is the one scope that resets the
+  token type back to Other (the same mechanism Markdown uses for embedded
+  code blocks), which is what lets the bracket matcher see them at all.
+  String *content* stays String-typed, so brackets inside quoted text
+  remain intentionally unmatched.
+- **"I can't jump between brackets when there are backticks between
+  them"**: a backtick span (Markdown inline code in `.md.m4`, or an m4
+  string in plain `.m4`) types everything inside it as String - so if one
+  of your two brackets ended up *inside* the span (e.g. an unbalanced
+  backtick swallowed it), the matcher can no longer see it. The bracket
+  pair itself sitting *around* a well-formed backtick span works fine.
+  With the `⟦⟧` convention, quoted m4 bodies no longer interact with
+  backticks at all, which removes the common way this used to happen.
+
+One honest static-layer limitation remains: a `⟦...⟧` string spanning
+multiple lines *inside a Markdown paragraph, list, or indented block*
+cannot keep its region open in the static grammar - Markdown's block rules
+are begin/while regions, and the TextMate engine re-checks every `while` at
+each new line, forcibly popping anything nested inside (an injected string
+region included). The language server isn't affected - it tracks the
+string across lines, repaints the whole body with string semantic tokens,
+and hover/definitions work - and the injection contains a guard so that a
+``` sequence inside such a string can't reach Markdown's fenced-code rule
+and open a phantom fence that swallows the rest of the file (plus stray
+`⟧` closers stay bracket-matchable, so delimiter jumping keeps working
+even across such a string).
 
 Also note that m4 has no idea what Markdown is: a bare macro reference
 inside a fenced code block or inline code span still expands, since m4
@@ -185,6 +228,18 @@ This extension supports that dialect, in both layers:
   invisible - bare words get no static styling either way, and ASCII text
   tokenizes identically under both rules - but it is technically a
   dialect bet, in the same spirit as the `.md.m4` grammar's delimiter bet.
+  Two exceptions: `⟦` and `⟧` are *excluded* from identifiers everywhere,
+  since they're the recommended quote delimiters (and the registered
+  bracket pair) - a character can't sensibly be both, and the delimiter
+  reading is the useful one.
+- Beyond that fixed carve-out, the language server also guarantees more
+  generally that **whatever the currently-active quote/comment delimiters
+  are always win over identifier characters**: after `changequote(«,»)`,
+  say, a word butting up against a `»` no longer absorbs it (both are
+  non-ASCII, so both are identifier characters in isolation). Without this
+  rule, `Prize»` would lex as one identifier, the enclosing string would
+  never see its closing delimiter, and a spurious unclosed-string cascade
+  would swallow the rest of the file.
 - The **language server** honors the `m4.unicodeIdentifiers` setting
   (default `true`). When on, `define(≡📅, ...)` is tracked like any other
   definition: the bare `≡📅` reference later highlights, hovers to its

@@ -3,34 +3,60 @@
   "name": "M4 in Markdown (injection)",
   "scopeName": "m4.injection.markdown",
   "injectionSelector": "L:text.html.markdown.m4 -comment -string",
-  "comment": "Injected (not just included) so m4 constructs are recognized even in the middle of an already-open Markdown block (e.g. a multi-line paragraph or list item), not only at the start of a line. A plain 'include text.html.markdown' composition can't do that: once Markdown's own paragraph/list/etc. rule has started matching, only *its* nested patterns are considered for the rest of that block - see README.md. The '-comment -string' exclusions are load-bearing: an injection selector matches anywhere the root scope is on the scope stack, i.e. INCLUDING inside the regions this very grammar opens - without the exclusions, the <!-- comment rule fires inside the [[<!--]] string of the standard changecom preamble, and the [[ string rule fires inside comments, each preventing the other's end delimiter from ever matching and cascading to the end of the file. Comments take no nested highlighting at all, and strings handle their own nesting via their own patterns, so both are safe to exclude. Unlike the plain source.m4 grammar, this grammar deliberately does NOT assume m4's default delimiters: it hardcodes the README's recommended .md.m4 convention instead - [[...]] quotes (changequote([[,]])) and <!-- ... --> comments (changecom([[<!--]],[[-->]])). m4's default backtick quote and # comment are left entirely to Markdown, where they mean inline code and headings; a static grammar can only pick one set of delimiters, and for .md.m4 files the recommended convention is the right bet, not the m4 defaults (which cascade catastrophically against Markdown's backticks - see README). Files that DON'T follow the convention still get corrected by the language server, whose comment/string semantic tokens follow the live changequote/changecom state.",
+  "comment": "Injected (not just included) so m4 constructs are recognized even in the middle of an already-open Markdown block (e.g. a multi-line paragraph or list item), not only at the start of a line. A plain 'include text.html.markdown' composition can't do that: once Markdown's own paragraph/list/etc. rule has started matching, only *its* nested patterns are considered for the rest of that block - see README.md. The '-comment -string' exclusions are load-bearing: an injection selector matches anywhere the root scope is on the scope stack, i.e. INCLUDING inside the regions this very grammar opens - without the exclusions, the <!-- comment rule fires inside a quoted comment-delimiter string of the standard changecom preamble, and the quote rule fires inside comments, each preventing the other's end delimiter from ever matching and cascading to the end of the file. Comments take no nested highlighting at all, and strings handle their own nesting via their own patterns, so both are safe to exclude. Unlike the plain source.m4 grammar, this grammar deliberately does NOT assume m4's default delimiters: it hardcodes the README's recommended .md.m4 convention instead - ⟦...⟧ quotes (changequote(⟦,⟧); the doubled-bracket [[...]] form of earlier versions is still recognized) and <!-- ... --> comments (changecom(⟦<!--⟧,⟦-->⟧)). m4's default backtick quote and # comment are left entirely to Markdown, where they mean inline code and headings; a static grammar can only pick one set of delimiters, and for .md.m4 files the recommended convention is the right bet, not the m4 defaults (which cascade catastrophically against Markdown's backticks - see README). Files that DON'T follow the convention still get corrected by the language server, whose comment/string semantic tokens follow the live changequote/changecom state.",
   "patterns": [
     { "include": "#md-m4-comment" },
     { "include": "source.m4#dnl-statement" },
-    { "include": "#md-m4-code" }
+    { "include": "#md-m4-code" },
+    { "include": "#md-m4-fence-guard" },
+    { "include": "#md-m4-stray-close" }
   ],
   "repository": {
     "md-m4-comment": {
-      "comment": "The conventional .md.m4 comment delimiters (changecom([[<!--]],[[-->]])). Deliberately identical to Markdown's own HTML-comment syntax, so one wrapper hides text from the rendered output AND protects it from macro expansion. Correct even in files that never call changecom: an HTML comment is a comment to Markdown regardless.",
+      "comment": "The conventional .md.m4 comment delimiters (changecom(⟦<!--⟧,⟦-->⟧)). Deliberately identical to Markdown's own HTML-comment syntax, so one wrapper hides text from the rendered output AND protects it from macro expansion. Correct even in files that never call changecom: an HTML comment is a comment to Markdown regardless.",
       "name": "comment.block.m4",
       "begin": "<!--",
       "end": "-->"
     },
     "md-m4-quoted-string": {
-      "comment": "The conventional .md.m4 quote delimiters (changequote([[,]])), with balanced nesting like any m4 quote pair. Doubled brackets are not meaningful CommonMark syntax (single [...] is link text), so this doesn't fight the Markdown grammar. Note for wiki-flavored Markdown users: [[wikilinks]] will render as m4 strings here - in this dialect that's what they are.",
+      "comment": "The recommended .md.m4 quote delimiters, ⟦...⟧ (U+27E6/U+27E7, mathematical white square brackets), with balanced nesting like any m4 quote pair. They collide with nothing in CommonMark and nothing common in prose. The delimiters carry meta.embedded.block.m4 alongside their punctuation scope ON PURPOSE: VS Code derives each token's standard type (Other/String/Comment) from its scopes, bracket matching skips brackets inside String/Comment-typed tokens, and any scope containing the word 'string' - including punctuation.definition.string.* - types the token as String. meta.embedded is the one scope that RESETS the type to Other (the same mechanism Markdown itself uses for embedded code blocks), which is what lets Ctrl+Shift+\\ jump between the ⟦ ⟧ delimiters declared as brackets in language-configuration.md-m4.json. The string CONTENT stays String-typed, so brackets inside quoted text are deliberately invisible to bracket matching.",
       "name": "string.quoted.other.m4",
-      "begin": "\\[\\[",
-      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.m4" } },
-      "end": "\\]\\]",
-      "endCaptures": { "0": { "name": "punctuation.definition.string.end.m4" } },
+      "begin": "⟦",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.m4 meta.embedded.block.m4" } },
+      "end": "⟧",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.m4 meta.embedded.block.m4" } },
       "patterns": [
         { "include": "#md-m4-code" }
       ]
     },
+    "md-m4-quoted-string-brackets": {
+      "comment": "The doubled-bracket [[...]] convention from earlier versions of this extension, kept so existing files still highlight. Same meta.embedded trick as the ⟦...⟧ rule; jumping works through the ordinary single [ ] bracket pair, which matches char-wise across the doubled delimiters. Note for wiki-flavored Markdown users: [[wikilinks]] render as m4 strings here - in this dialect that's what they are.",
+      "name": "string.quoted.other.m4",
+      "begin": "\\[\\[",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.m4 meta.embedded.block.m4" } },
+      "end": "\\]\\]",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.m4 meta.embedded.block.m4" } },
+      "patterns": [
+        { "include": "#md-m4-code" }
+      ]
+    },
+    "md-m4-fence-guard": {
+      "comment": "Multi-line ⟦...⟧ strings cannot survive the static layer inside Markdown block context: Markdown's paragraph/list/indented-code rules are begin/WHILE regions, and vscode-textmate re-checks every while condition at each new line, popping any begin/end region nested inside - including an injected m4 string. (The language server repaints the string content correctly; this is only about limiting static fallout.) The worst fallout is a ``` that was part of the popped string's content reaching Markdown's fenced-code rule and opening a phantom fence that swallows the rest of the file. This rule claims exactly the suspicious case - a fence-looking line whose remainder contains a ⟧ close delimiter (a real fence's info string never would) - so Markdown never sees it. The stray ⟧ then renders via md-m4-stray-close, and anything after it (like the ))dnl in a wrapped macro definition) is scanned normally again.",
+      "match": "^ {0,3}(`{3,})(?=[^`\\r\\n]*⟧)",
+      "captures": {
+        "1": { "name": "string.quoted.other.m4" }
+      }
+    },
+    "md-m4-stray-close": {
+      "comment": "A ⟧ whose opening ⟦ was lost to a while-pop (see md-m4-fence-guard). Scoped like the real close delimiter - punctuation plus meta.embedded, so it stays bracket-matchable and Ctrl+Shift+\\ still jumps between it and its (Other-typed) ⟦, which the character-based bracket matcher pairs correctly regardless of what happened to the TextMate region in between.",
+      "match": "⟧",
+      "name": "punctuation.definition.string.end.m4 meta.embedded.block.m4"
+    },
     "md-m4-code": {
-      "comment": "The delimiter-independent m4 rules, shared with source.m4, plus this dialect's own quote rule. Everything here is valid both at top level and inside a quoted string (a quoted string is usually a deferred macro body).",
+      "comment": "The delimiter-independent m4 rules, shared with source.m4, plus this dialect's own quote rules. Everything here is valid both at top level and inside a quoted string (a quoted string is usually a deferred macro body).",
       "patterns": [
         { "include": "#md-m4-quoted-string" },
+        { "include": "#md-m4-quoted-string-brackets" },
         { "include": "source.m4#directive-call" },
         { "include": "source.m4#builtin-call" },
         { "include": "source.m4#macro-call" },

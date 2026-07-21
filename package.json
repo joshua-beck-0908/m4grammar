@@ -2,7 +2,7 @@
   "name": "m4-syntax",
   "displayName": "GNU M4 Syntax Highlighting",
   "description": "Syntax highlighting and a lightweight language server for the GNU m4 macro processor (.m4 files, .md.m4 Markdown+M4 files, and m4 code cells in Jupyter notebooks). Tracks changequote/changecom/changeword and macro definitions live, on top of a TextMate grammar.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "engines": {

@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0
+
+- `⟦` and `⟧` (U+27E6/U+27E7) are now the recommended default quote
+  delimiters for `.md.m4` files, and are registered as a matching bracket
+  pair in both languages: bracket-pair colorization applies to them and
+  `Ctrl+Shift+\` jumps between the two ends of a quoted string. Quote
+  delimiter tokens carry `meta.embedded.block.m4` so VS Code's bracket
+  matcher (which ignores String/Comment-typed tokens) can see them; string
+  *content* deliberately stays String-typed. The `[[...]]` convention from
+  earlier versions is still recognized.
+- Fixed the unclosed-string cascade reported with non-ASCII quote
+  delimiters (e.g. `changequote(`⟦',`⟧')`): under the 0.4.0
+  unicode-identifier rule the delimiters themselves became identifier
+  characters, so a word adjacent to a closing delimiter (`Prize⟧`)
+  swallowed it and the string never closed. Delimiter strings now always
+  win over identifier characters in the analyzer (for any delimiters, e.g.
+  `«»` too), and `⟦`/`⟧` are additionally excluded from identifier classes
+  outright in both the grammars and the analyzer.
+- Added a fence guard to the `.md.m4` grammar: a ``` line whose remainder
+  contains a `⟧` (something no real fence info-string has) can no longer
+  reach Markdown's fenced-code rule and open a phantom fence swallowing
+  the rest of the file - the failure mode when a multi-line `⟦...⟧` string
+  is forcibly closed by Markdown's begin/while block rules. Stray `⟧`
+  closers remain bracket-matchable, and the language server now emits
+  contiguous string semantic tokens over quoted bodies (bare unbound words
+  no longer punch holes in the run), so multi-line string content is fully
+  repainted even where the static layer loses the region.
+- The `m4md-preamble` snippet and examples now use
+  `changequote(⟦,⟧)` / `changecom(⟦<!--⟧,⟦-->⟧)`.
+
 ## 0.4.0
 
 - Added Unicode-identifier support (the wrapper-script dialect where every

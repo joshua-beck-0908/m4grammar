@@ -3,11 +3,13 @@
     "blockComment": ["<!--", "-->"]
   },
   "brackets": [
+    ["⟦", "⟧"],
     ["(", ")"],
     ["[", "]"],
     ["{", "}"]
   ],
   "autoClosingPairs": [
+    { "open": "⟦", "close": "⟧" },
     { "open": "(", "close": ")" },
     { "open": "[", "close": "]" },
     { "open": "{", "close": "}" },
@@ -17,6 +19,7 @@
     { "open": "_", "close": "_", "notIn": ["string"] }
   ],
   "surroundingPairs": [
+    ["⟦", "⟧"],
     ["(", ")"],
     ["[", "]"],
     ["{", "}"],
@@ -24,5 +27,5 @@
     ["*", "*"],
     ["_", "_"]
   ],
-  "wordPattern": "[A-Za-z_\\u0080-\\uFFFF][A-Za-z0-9_\\u0080-\\uFFFF]*"
+  "wordPattern": "[A-Za-z_\\u0080-\\u27E5\\u27E8-\\uFFFF][A-Za-z0-9_\\u0080-\\u27E5\\u27E8-\\uFFFF]*"
 }

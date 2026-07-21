@@ -138,7 +138,11 @@ const ASCII_WORD_SOURCE = '[A-Za-z_][A-Za-z0-9_]*';
 // character: astral-plane characters like the calendar emoji are surrogate
 // pairs whose halves both fall inside that range, so the whole character is
 // consumed unit by unit and identifier spans stay contiguous.
-const UNICODE_WORD_SOURCE = '[A-Za-z_\\u0080-\\uffff][A-Za-z0-9_\\u0080-\\uffff]*';
+// \u27e6/\u27e7 (the recommended quote delimiters, and the only characters this
+// extension treats as brackets) are carved out of the identifier classes: a
+// character can't sensibly be both a quote delimiter and an identifier
+// character, and the delimiter reading is the useful one.
+const UNICODE_WORD_SOURCE = '[A-Za-z_\\u0080-\\u27e5\\u27e8-\\uffff][A-Za-z0-9_\\u0080-\\u27e5\\u27e8-\\uffff]*';
 const NUMBER_RE = /(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)/y;
 const PARAM_RE = /\$(?:\{[0-9]+\}|[0-9]+|#|\*|@)/y;
 const WHITESPACE_RE = /[ \t\r\n\f\v]/;
@@ -242,11 +246,26 @@ export class M4Analyzer {
     return f.text.startsWith(s, f.pos + offsetFromPos);
   }
 
+  /** Matches an identifier at the current position. Delimiter strings always
+   *  win over identifier characters: with unicode identifiers on, a non-ASCII
+   *  quote or comment delimiter (e.g. « from changequote(«,»)) is *also* a
+   *  word character, and a greedy word match would otherwise swallow it - so
+   *  `Prize»` would become one identifier, the enclosing string would never
+   *  see its closing delimiter, and a spurious unclosed-string cascade would
+   *  swallow the rest of the file. The match is truncated at the earliest
+   *  occurrence of any currently-active delimiter. */
   private matchWordHere(): string | null {
     const f = this.top();
     this.wordRegex.lastIndex = f.pos;
     const m = this.wordRegex.exec(f.text);
-    return m ? m[0] : null;
+    if (!m) return null;
+    let word = m[0];
+    for (const delim of [this.quoteLeft, this.quoteRight, this.commentBegin]) {
+      if (!delim) continue;
+      const i = word.indexOf(delim);
+      if (i !== -1) word = word.slice(0, i);
+    }
+    return word.length > 0 ? word : null;
   }
 
   private matchStickyHere(re: RegExp): string | null {
@@ -466,10 +485,19 @@ export class M4Analyzer {
           continue;
         }
         const before = f.pos;
+        const tokensBefore = this.tokens.length;
         const consumed = this.tryWord(false) || this.consumeIfMatch(NUMBER_RE, SemTokenType.Number) || this.consumeIfMatch(PARAM_RE, SemTokenType.Parameter);
         if (consumed) {
-          if (before > runStart) this.emitToken(runStart, before, SemTokenType.String);
-          runStart = f.pos;
+          // Only break the string run if something was actually emitted:
+          // tryWord silently consumes an unbound bare word, and leaving it
+          // inside the run keeps the String tokens contiguous over the whole
+          // body - which matters in .md.m4, where the static layer can lose
+          // a multi-line string region to Markdown's begin/while blocks and
+          // these semantic tokens are what repaints the content correctly.
+          if (this.tokens.length > tokensBefore) {
+            if (before > runStart) this.emitToken(runStart, before, SemTokenType.String);
+            runStart = f.pos;
+          }
           continue;
         }
         f.pos = before + 1;
